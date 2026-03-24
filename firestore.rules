@@ -7,7 +7,7 @@ service cloud.firestore {
 
     match /lifeAreas/{areaId} {
       allow read: if true;
-      allow create, update: if request.resource.data.keys().hasAll(['name', 'icon', 'color']) 
+      allow create, update: if request.resource.data.keys().hasAll(['name', 'color']) 
                            && request.resource.data.name is string;
       allow delete: if true;
     }
@@ -17,6 +17,21 @@ service cloud.firestore {
       allow create, update: if request.resource.data.keys().hasAll(['name', 'lifeAreaId', 'status', 'priority', 'createdAt'])
                            && request.resource.data.status in ['active', 'pending', 'done']
                            && request.resource.data.priority in ['high', 'medium', 'low'];
+      allow delete: if true;
+    }
+
+    match /tasks/{taskId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasAll(['name', 'projectId', 'status', 'priority', 'createdAt'])
+                           && request.resource.data.status in ['active', 'pending', 'done']
+                           && request.resource.data.priority in ['high', 'medium', 'low'];
+      allow delete: if true;
+    }
+
+    match /actions/{actionId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasAll(['name', 'taskId', 'status', 'createdAt'])
+                           && request.resource.data.status in ['todo', 'done'];
       allow delete: if true;
     }
 

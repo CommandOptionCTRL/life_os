@@ -1,7 +1,7 @@
 <script>
   import { isOverdue } from '$lib/stores/projects.js';
 
-  let { project, lifeArea = null, onedit, ondelete } = $props();
+  let { project, lifeArea = null, onedit, ondelete, onnavigate } = $props();
 
   const priorityConfig = {
     high:   { label: 'High',   color: '#FC5C65', icon: '🔴' },
@@ -25,7 +25,8 @@
   }
 </script>
 
-<div class="card" class:overdue>
+<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<div class="card" class:overdue onclick={() => onnavigate?.(project)}>
   <div class="card-header">
     <div class="card-meta">
       {#if lifeArea}

@@ -2,11 +2,14 @@
   import { onMount, onDestroy } from 'svelte';
   import { settings } from '$lib/stores/settings.js';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+  import ConfirmSheet from '$lib/components/ConfirmSheet.svelte';
 
   onMount(() => settings.init());
   onDestroy(() => settings.destroy());
 
   let fileInput;
+  let confirmOpen = $state(false);
+  let pendingImportFile = $state(null);
 
   function handleExport() {
     settings.exportData();
@@ -16,17 +19,27 @@
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (confirm('Warning: This will overwrite all current LifeOS data. Continue?')) {
-      try {
-        await settings.importData(file);
-        alert('Import successful! The app will now reload.');
-        window.location.reload();
-      } catch (err) {
-        alert('Failed to import data: ' + err.message);
-      }
-    }
-    // Reset file input
+    pendingImportFile = file;
+    confirmOpen = true;
     e.target.value = '';
+  }
+
+  async function handleConfirmImport() {
+    if (!pendingImportFile) return;
+    confirmOpen = false;
+    try {
+      await settings.importData(pendingImportFile);
+      alert('Import successful! The app will now reload.');
+      window.location.reload();
+    } catch (err) {
+      alert('Failed to import data: ' + err.message);
+    }
+    pendingImportFile = null;
+  }
+
+  function handleCancelImport() {
+    confirmOpen = false;
+    pendingImportFile = null;
   }
 </script>
 
@@ -81,6 +94,14 @@
     <p>LifeOS v1.0.0 (Agentic Build)</p>
   </section>
 </main>
+
+<ConfirmSheet
+  open={confirmOpen}
+  message="Warning: This will overwrite all current LifeOS data. Continue?"
+  confirmLabel="Import"
+  onconfirm={handleConfirmImport}
+  oncancel={handleCancelImport}
+/>
 
 <style>
   .page {

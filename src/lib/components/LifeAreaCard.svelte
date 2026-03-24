@@ -1,5 +1,5 @@
 <script>
-  let { area, onedit, ondelete, onview } = $props();
+  let { area, onedit, ondelete, onnavigate } = $props();
 
   const colorPalette = [
     '#6C63FF','#F7B731','#26de81','#FC5C65',
@@ -12,7 +12,7 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-<div class="card" onclick={() => onview(area)} style="--area-color: {getColor(area.color)}">
+<div class="card" onclick={() => onnavigate(area)} style="--area-color: {getColor(area.color)}">
   <div class="card-left">
     <div class="color-swatch"></div>
     <div class="card-info">

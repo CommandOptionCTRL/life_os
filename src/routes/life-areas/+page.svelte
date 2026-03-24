@@ -1,11 +1,15 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
+  import { goto } from '$app/navigation';
   import { lifeAreas } from '$lib/stores/lifeAreas.js';
   import LifeAreaCard from '$lib/components/LifeAreaCard.svelte';
   import LifeAreaModal from '$lib/components/LifeAreaModal.svelte';
+  import ConfirmSheet from '$lib/components/ConfirmSheet.svelte';
   import FAB from '$lib/components/FAB.svelte';
 
   let modalOpen = $state(false);
+  let confirmOpen = $state(false);
+  let itemToDelete = $state(null);
   let editingArea = $state(null);
   let readOnly = $state(false);
 
@@ -24,10 +28,8 @@
     modalOpen = true;
   }
 
-  function openView(area) {
-    editingArea = area;
-    readOnly = true;
-    modalOpen = true;
+  function handleNavigate(area) {
+    goto(`/life-areas/${area.id}`);
   }
 
   async function handleSave(data) {
@@ -40,8 +42,15 @@
   }
 
   async function handleDelete(id) {
-    if (confirm('Delete this Life Area?')) {
-      await lifeAreas.deleteLifeArea(id);
+    itemToDelete = id;
+    confirmOpen = true;
+  }
+
+  async function handleConfirmDelete() {
+    if (itemToDelete) {
+      await lifeAreas.deleteLifeArea(itemToDelete);
+      confirmOpen = false;
+      itemToDelete = null;
     }
   }
 </script>
@@ -69,7 +78,7 @@
           {area} 
           onedit={openEdit} 
           ondelete={handleDelete} 
-          onview={openView} 
+          onnavigate={handleNavigate} 
         />
       {/each}
     </div>
@@ -81,9 +90,15 @@
 <LifeAreaModal
   open={modalOpen}
   area={editingArea}
-  {readOnly}
   onsave={handleSave}
   onclose={() => modalOpen = false}
+/>
+
+<ConfirmSheet
+  open={confirmOpen}
+  message="Delete this Life Area?"
+  onconfirm={handleConfirmDelete}
+  oncancel={() => confirmOpen = false}
 />
 
 <style>

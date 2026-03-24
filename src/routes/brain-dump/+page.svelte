@@ -5,8 +5,11 @@
   import BrainDumpInput from '$lib/components/BrainDumpInput.svelte';
   import BrainDumpItem from '$lib/components/BrainDumpItem.svelte';
   import ConvertModal from '$lib/components/ConvertModal.svelte';
+  import ConfirmSheet from '$lib/components/ConfirmSheet.svelte';
 
   let convertModalOpen = $state(false);
+  let confirmOpen = $state(false);
+  let itemToDelete = $state(null);
   let itemToConvert = $state(null);
 
   onMount(() => {
@@ -25,8 +28,15 @@
   }
 
   async function handleDelete(id) {
-    if (confirm('Delete this item?')) {
-      await brainDump.deleteItem(id);
+    itemToDelete = id;
+    confirmOpen = true;
+  }
+
+  async function handleConfirmDelete() {
+    if (itemToDelete) {
+      await brainDump.deleteItem(itemToDelete);
+      confirmOpen = false;
+      itemToDelete = null;
     }
   }
 </script>
@@ -66,6 +76,13 @@
   open={convertModalOpen} 
   item={itemToConvert} 
   onclose={() => convertModalOpen = false} 
+/>
+
+<ConfirmSheet
+  open={confirmOpen}
+  message="Delete this item?"
+  onconfirm={handleConfirmDelete}
+  oncancel={() => confirmOpen = false}
 />
 
 <style>

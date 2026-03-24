@@ -7,10 +7,6 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db } from '../../firebase/database.js';
-import { followups } from './followups.js';
-import { brainDump } from './brainDump.js';
-import { lifeAreas } from './lifeAreas.js';
-import { projects } from './projects.js';
 
 /**
  * @typedef {{
@@ -73,6 +69,18 @@ function createSettingsStore() {
   }
 
   async function exportData() {
+    const [
+      { lifeAreas },
+      { projects },
+      { brainDump },
+      { followups }
+    ] = await Promise.all([
+      import('./lifeAreas.js'),
+      import('./projects.js'),
+      import('./brainDump.js'),
+      import('./followups.js')
+    ]);
+
     const data = {
       version: 1,
       timestamp: new Date().toISOString(),
