@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+:root {
+  /* Brand */
+  --color-primary: #6C63FF;
+  --color-primary-soft: rgba(108, 99, 255, 0.15);
+  --color-accent: #FF6584;
+
+  /* Surfaces */
+  --color-bg: #0E0F14;
+  --color-surface: #16181F;
+  --color-surface-2: #1E2029;
+  --color-border: rgba(255,255,255,0.07);
+
+  /* Text */
+  --color-text: #F0F0F5;
+  --color-text-muted: rgba(240,240,245,0.5);
+
+  /* Life-area palette */
+  --color-area-1: #6C63FF;
+  --color-area-2: #F7B731;
+  --color-area-3: #26de81;
+  --color-area-4: #FC5C65;
+  --color-area-5: #45AAF2;
+  --color-area-6: #FD9644;
+  --color-area-7: #A55EEA;
+  --color-area-8: #2BCBBA;
+
+  /* Layout */
+  --nav-height: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --fab-size: 56px;
+  --radius: 16px;
+  --radius-sm: 10px;
+
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 99px; }
