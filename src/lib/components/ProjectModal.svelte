@@ -1,4 +1,6 @@
 <script>
+  import ColourPicker from '$lib/components/ColourPicker.svelte';
+
   let { open = false, project = null, lifeAreas = [], onsave, onclose } = $props();
 
   const priorities = ['high', 'medium', 'low'];
@@ -6,6 +8,7 @@
 
   let name = $state('');
   let lifeAreaId = $state('');
+  let color = $state('var(--color-area-1)');
   let priority = $state('medium');
   let status = $state('active');
   let dueDate = $state('');
@@ -14,6 +17,7 @@
     if (open) {
       name = project?.name ?? '';
       lifeAreaId = project?.lifeAreaId ?? (lifeAreas[0]?.id ?? '');
+      color = project?.color ?? 'var(--color-area-1)';
       priority = project?.priority ?? 'medium';
       status = project?.status ?? 'active';
       dueDate = project?.dueDate ?? '';
@@ -25,6 +29,7 @@
     onsave({
       name: name.trim(),
       lifeAreaId,
+      color,
       priority,
       status,
       dueDate: dueDate || null
@@ -58,6 +63,13 @@
             <option value={area.id}>{area.name}</option>
           {/each}
         </select>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Theme Colour</span>
+        <div style="margin-top: 8px;">
+          <ColourPicker bind:value={color} />
+        </div>
       </div>
 
       <div class="field">

@@ -30,12 +30,17 @@ function createFollowupsStore() {
   /** @type {(() => void) | null} */
   let unsubscribe = null;
 
-  function init() {
+  function init(onLoaded = null) {
     const q = query(col, orderBy('createdAt', 'desc'));
+    let initial = true;
     unsubscribe = onSnapshot(q, (snapshot) => {
       /** @type {Followup[]} */
       const items = snapshot.docs.map((d) => ({ id: d.id, .../** @type {any} */ (d.data()) }));
       set(items);
+      if (initial) {
+        initial = false;
+        onLoaded?.();
+      }
     });
   }
 

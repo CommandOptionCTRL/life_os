@@ -9,6 +9,7 @@
   import ActionModal from '$lib/components/ActionModal.svelte';
   import ConfirmSheet from '$lib/components/ConfirmSheet.svelte';
   import Breadcrumb from '$lib/components/Breadcrumb.svelte';
+  import SkeletonCard from '$lib/components/SkeletonCard.svelte';
   import FAB from '$lib/components/FAB.svelte';
 
   let areaId = $derived(page.params.areaId);
@@ -20,12 +21,25 @@
   let itemToDelete = $state(null);
   let editingAction = $state(null);
 
+  let loadingAreas = $state(true);
+  let loadingProjects = $state(true);
+  let loadingTasks = $state(true);
+  let loadingActions = $state(true);
+  let loading = $derived(loadingAreas || loadingProjects || loadingTasks || loadingActions);
+
   onMount(() => {
-    lifeAreas.init();
-    projects.init();
+    lifeAreas.init(() => loadingAreas = false);
+    projects.init(() => loadingProjects = false);
+    
     $effect(() => {
-      if (projectId) tasks.init(projectId);
-      if (taskId) actions.init(taskId);
+      if (projectId) {
+        loadingTasks = true;
+        tasks.init(projectId, () => loadingTasks = false);
+      }
+      if (taskId) {
+        loadingActions = true;
+        actions.init(taskId, () => loadingActions = false);
+      }
     });
   });
 
@@ -103,7 +117,13 @@
     <p class="page-subtitle">The next step</p>
   </header>
 
-  {#if filteredActions.length === 0}
+  {#if loading}
+    <div class="actions-list">
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard />
+    </div>
+  {:else if filteredActions.length === 0}
     <div class="empty-state">
       <div class="empty-icon">⚡</div>
       <h2>No actions yet</h2>

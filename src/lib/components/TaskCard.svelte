@@ -27,6 +27,7 @@
   let translateX = $state(0);
   let isSwiping = $state(false);
   let startX = 0;
+  let ignoreClick = false;
 
   function handleTouchStart(e) {
     startX = e.touches[0].clientX;
@@ -36,33 +37,43 @@
   function handleTouchMove(e) {
     if (!isSwiping) return;
     const diff = e.touches[0].clientX - startX;
-    if (diff < 0) {
+    
+    // Allow closing a swiped card smoothly or opening it
+    if (translateX < 0 && diff > 0) {
+      translateX = Math.min(-80 + diff, 0);
+    } else if (translateX === 0 && diff < 0) {
       translateX = Math.max(diff, -80);
-    } else {
-      translateX = 0;
     }
   }
 
   function handleTouchEnd(e) {
     if (!isSwiping) return;
     isSwiping = false;
+
+    const diff = e.changedTouches[0].clientX - startX;
+    
+    // Tap detection
+    if (Math.abs(diff) < 5) {
+      if (translateX < 0) {
+        translateX = 0;
+        ignoreClick = true;
+        setTimeout(() => ignoreClick = false, 300);
+      }
+      return;
+    }
+
     if (translateX < -40) {
       translateX = -80;
+      ignoreClick = true; // prevent the resulting click
+      setTimeout(() => ignoreClick = false, 300);
     } else {
       translateX = 0;
-      // It was a tap
-      if (Math.abs(e.changedTouches[0].clientX - startX) < 5) {
-        onnavigate(task);
-      }
     }
   }
 
   function handleClick(e) {
-    if (translateX === 0) {
-      onnavigate(task);
-    } else {
-      translateX = 0;
-    }
+    if (ignoreClick) return;
+    onnavigate(task);
   }
 </script>
 
@@ -99,6 +110,11 @@
         <button class="icon-btn" onclick={(e) => { e.stopPropagation(); onedit(task); }} aria-label="Edit">
            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        </button>
+        <button class="icon-btn delete-icon" onclick={(e) => { e.stopPropagation(); ondelete(task.id); }} aria-label="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
         </button>
       </div>
@@ -193,6 +209,7 @@
   .icon-btn svg { width: 16px; height: 16px; }
   .icon-btn:hover { background: var(--color-surface-2); color: var(--color-text); }
   .icon-btn.flagged { color: #F7B731; }
+  .icon-btn.delete-icon:hover { color: #FC5C65; }
 
   .card-name { font-size: 16px; font-weight: 600; color: var(--color-text); line-height: 1.3; margin: 0; }
   .card-desc { font-size: 13px; color: var(--color-text-muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0; }

@@ -5,6 +5,7 @@
   import LifeAreaCard from '$lib/components/LifeAreaCard.svelte';
   import LifeAreaModal from '$lib/components/LifeAreaModal.svelte';
   import ConfirmSheet from '$lib/components/ConfirmSheet.svelte';
+  import SkeletonCard from '$lib/components/SkeletonCard.svelte';
   import FAB from '$lib/components/FAB.svelte';
 
   let modalOpen = $state(false);
@@ -12,8 +13,9 @@
   let itemToDelete = $state(null);
   let editingArea = $state(null);
   let readOnly = $state(false);
+  let loading = $state(true);
 
-  onMount(() => lifeAreas.init());
+  onMount(() => lifeAreas.init(() => loading = false));
   onDestroy(() => lifeAreas.destroy());
 
   function openCreate() {
@@ -65,7 +67,13 @@
     <p class="page-subtitle">The pillars of your life</p>
   </header>
 
-  {#if $lifeAreas.length === 0}
+  {#if loading}
+    <div class="areas-list">
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard />
+    </div>
+  {:else if $lifeAreas.length === 0}
     <div class="empty-state">
       <div class="empty-icon">🌱</div>
       <h2>No life areas yet</h2>

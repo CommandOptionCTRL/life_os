@@ -24,12 +24,17 @@ function createLifeAreasStore() {
   /** @type {(() => void) | null} */
   let unsubscribe = null;
 
-  function init() {
+  function init(onLoaded = null) {
     const q = query(col, orderBy('createdAt', 'asc'));
+    let initial = true;
     unsubscribe = onSnapshot(q, (snapshot) => {
       /** @type {LifeArea[]} */
       const areas = snapshot.docs.map((d) => ({ id: d.id, .../** @type {any} */ (d.data()) }));
       set(areas);
+      if (initial) {
+        initial = false;
+        onLoaded?.();
+      }
     });
   }
 

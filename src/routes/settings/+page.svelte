@@ -3,6 +3,7 @@
   import { settings } from '$lib/stores/settings.js';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
   import ConfirmSheet from '$lib/components/ConfirmSheet.svelte';
+  import ColourPicker from '$lib/components/ColourPicker.svelte';
 
   onMount(() => settings.init());
   onDestroy(() => settings.destroy());
@@ -56,7 +57,26 @@
   <section class="settings-section">
     <h2 class="section-title">Appearance</h2>
     <div class="settings-card">
-      <ThemeToggle />
+      <div class="settings-row">
+        <div>
+          <h3>Theme Mode</h3>
+          <p>Toggle dark or light interface.</p>
+        </div>
+        <ThemeToggle />
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="settings-row-col">
+        <div class="row-header">
+          <h3>Accent Colour</h3>
+          <p>Personalise the primary interface hue.</p>
+        </div>
+        <ColourPicker 
+          value={$settings.primaryColor} 
+          onchange={(newColor) => settings.updateSettings({ primaryColor: newColor })} 
+        />
+      </div>
     </div>
   </section>
 
@@ -149,6 +169,25 @@
   }
 
   .settings-row p {
+    font-size: 13px;
+    color: var(--color-text-muted);
+  }
+
+  .settings-row-col {
+    padding: 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .row-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 4px;
+  }
+
+  .row-header p {
     font-size: 13px;
     color: var(--color-text-muted);
   }

@@ -2,11 +2,13 @@
   import { onMount, onDestroy } from 'svelte';
   import { followups } from '$lib/stores/followups.js';
   import FollowupItem from '$lib/components/FollowupItem.svelte';
+  import SkeletonCard from '$lib/components/SkeletonCard.svelte';
 
   let text = $state('');
   let targetDate = $state('');
+  let loading = $state(true);
 
-  onMount(() => followups.init());
+  onMount(() => followups.init(() => loading = false));
   onDestroy(() => followups.destroy());
 
   async function handleAdd(e) {
@@ -68,7 +70,13 @@
     </div>
   </form>
 
-  {#if $followups.length === 0}
+  {#if loading}
+    <div class="list">
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard />
+    </div>
+  {:else if $followups.length === 0}
     <div class="empty-state">
       <div class="empty-icon">📨</div>
       <h2>No follow-ups needed</h2>

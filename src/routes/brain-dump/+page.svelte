@@ -1,25 +1,43 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
-  import { brainDump } from '$lib/stores/brainDump.js';
-  import { lifeAreas } from '$lib/stores/lifeAreas.js';
-  import BrainDumpInput from '$lib/components/BrainDumpInput.svelte';
-  import BrainDumpItem from '$lib/components/BrainDumpItem.svelte';
-  import ConvertModal from '$lib/components/ConvertModal.svelte';
-  import ConfirmSheet from '$lib/components/ConfirmSheet.svelte';
+  import { onMount, onDestroy } from "svelte";
+  import { brainDump } from "$lib/stores/brainDump.js";
+  import { lifeAreas } from "$lib/stores/lifeAreas.js";
+  import { projects } from "$lib/stores/projects.js";
+  import { tasks } from "$lib/stores/tasks.js";
+  import { actions } from "$lib/stores/actions.js";
+  import BrainDumpInput from "$lib/components/BrainDumpInput.svelte";
+  import BrainDumpItem from "$lib/components/BrainDumpItem.svelte";
+  import ConvertModal from "$lib/components/ConvertModal.svelte";
+  import ConfirmSheet from "$lib/components/ConfirmSheet.svelte";
+  import SkeletonCard from "$lib/components/SkeletonCard.svelte";
 
   let convertModalOpen = $state(false);
   let confirmOpen = $state(false);
   let itemToDelete = $state(null);
   let itemToConvert = $state(null);
+  let loading = $state(true);
 
   onMount(() => {
-    brainDump.init();
-    lifeAreas.init();
+    let bLoaded = false;
+    let lLoaded = false;
+    let pLoaded = false;
+    let tLoaded = false;
+    let aLoaded = false;
+    function check() { if (bLoaded && lLoaded && pLoaded && tLoaded && aLoaded) loading = false; }
+    
+    brainDump.init(() => { bLoaded = true; check(); });
+    lifeAreas.init(() => { lLoaded = true; check(); });
+    projects.init(() => { pLoaded = true; check(); });
+    tasks.init(null, () => { tLoaded = true; check(); });
+    actions.init(null, () => { aLoaded = true; check(); });
   });
 
   onDestroy(() => {
     brainDump.destroy();
     lifeAreas.destroy();
+    projects.destroy();
+    tasks.destroy();
+    actions.destroy();
   });
 
   function openConvert(item) {
@@ -53,36 +71,41 @@
 
   <BrainDumpInput />
 
-  {#if $brainDump.length === 0}
+  {#if loading}
+    <div class="items-list">
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard />
+    </div>
+  {:else if $brainDump.length === 0}
     <div class="empty-state">
       <div class="empty-icon">💭</div>
       <h2>Your mind is clear</h2>
-      <p>Empty your thoughts here to process them into projects or life areas later.</p>
+      <p>
+        Empty your thoughts here to process them into projects or life areas
+        later.
+      </p>
     </div>
   {:else}
     <div class="items-list">
       {#each $brainDump as item (item.id)}
-        <BrainDumpItem 
-          {item} 
-          ondelete={handleDelete} 
-          onconvert={openConvert} 
-        />
+        <BrainDumpItem {item} ondelete={handleDelete} onconvert={openConvert} />
       {/each}
     </div>
   {/if}
 </main>
 
-<ConvertModal 
-  open={convertModalOpen} 
-  item={itemToConvert} 
-  onclose={() => convertModalOpen = false} 
+<ConvertModal
+  open={convertModalOpen}
+  item={itemToConvert}
+  onclose={() => (convertModalOpen = false)}
 />
 
 <ConfirmSheet
   open={confirmOpen}
   message="Delete this item?"
   onconfirm={handleConfirmDelete}
-  oncancel={() => confirmOpen = false}
+  oncancel={() => (confirmOpen = false)}
 />
 
 <style>

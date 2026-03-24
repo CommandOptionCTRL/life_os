@@ -21,6 +21,7 @@ import { db } from '../../firebase/database.js';
  *   lifeAreaId: string;
  *   status: Status;
  *   priority: Priority;
+ *   flagged: boolean;
  *   dueDate: string | null;
  *   createdAt: import('firebase/firestore').Timestamp;
  * }} Project
@@ -36,12 +37,17 @@ function createProjectsStore() {
   /** @type {(() => void) | null} */
   let unsubscribe = null;
 
-  function init() {
+  function init(onLoaded = null) {
     const q = query(col, orderBy('createdAt', 'desc'));
+    let initial = true;
     unsubscribe = onSnapshot(q, (snapshot) => {
       /** @type {Project[]} */
       const items = snapshot.docs.map((d) => ({ id: d.id, .../** @type {any} */ (d.data()) }));
       set(items);
+      if (initial) {
+        initial = false;
+        onLoaded?.();
+      }
     });
   }
 
@@ -58,6 +64,7 @@ function createProjectsStore() {
       lifeAreaId: data.lifeAreaId,
       priority: data.priority ?? 'medium',
       status: data.status ?? 'active',
+      flagged: data.flagged ?? false,
       dueDate: data.dueDate ?? null,
       createdAt: serverTimestamp()
     });
@@ -78,7 +85,20 @@ function createProjectsStore() {
     await deleteDoc(doc(db, 'projects', id));
   }
 
-  return { subscribe, init, destroy, addProject, updateProject, deleteProject };
+  /**
+   * @param {string} id
+   */
+  async function toggleFlag(id) {
+    let currentFlag = false;
+    const unsub = subscribe(items => {
+      const item = items.find(i => i.id === id);
+      if (item) currentFlag = !!item.flagged;
+    });
+    unsub();
+    await updateProject(id, { flagged: !currentFlag });
+  }
+
+  return { subscribe, init, destroy, addProject, updateProject, deleteProject, toggleFlag };
 }
 
 export const projects = createProjectsStore();

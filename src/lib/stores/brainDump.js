@@ -23,12 +23,17 @@ function createBrainDumpStore() {
   /** @type {(() => void) | null} */
   let unsubscribe = null;
 
-  function init() {
+  function init(onLoaded = null) {
     const q = query(col, orderBy('createdAt', 'desc'));
+    let initial = true;
     unsubscribe = onSnapshot(q, (snapshot) => {
       /** @type {BrainDumpItem[]} */
       const items = snapshot.docs.map((d) => ({ id: d.id, .../** @type {any} */ (d.data()) }));
       set(items);
+      if (initial) {
+        initial = false;
+        onLoaded?.();
+      }
     });
   }
 
@@ -53,17 +58,20 @@ function createBrainDumpStore() {
 
   /**
    * @param {string} id
-   * @param {'area' | 'project'} targetType
-   * @param {string} [selectedAreaId]
+   * @param {'area' | 'project' | 'task' | 'action'} targetType
+   * @param {string | null} parentId
+   * @param {string} newName
    */
-  async function convertItem(id, targetType, selectedAreaId) {
+  async function convertItem(id, targetType, parentId, newName) {
     const item = (await import('svelte/store')).get(brainDump).find(i => i.id === id);
     if (!item) return;
+
+    const nameToUse = newName.trim() || item.text;
 
     if (targetType === 'area') {
       const col = collection(db, 'lifeAreas');
       await addDoc(col, {
-        name: item.text,
+        name: nameToUse,
         description: '',
         color: '#6C63FF',
         createdAt: serverTimestamp()
@@ -71,10 +79,33 @@ function createBrainDumpStore() {
     } else if (targetType === 'project') {
       const col = collection(db, 'projects');
       await addDoc(col, {
-        name: item.text,
-        lifeAreaId: selectedAreaId,
+        name: nameToUse,
+        lifeAreaId: parentId,
         status: 'active',
         priority: 'medium',
+        flagged: false,
+        dueDate: null,
+        createdAt: serverTimestamp()
+      });
+    } else if (targetType === 'task') {
+      const col = collection(db, 'tasks');
+      await addDoc(col, {
+        name: nameToUse,
+        description: '',
+        projectId: parentId,
+        status: 'active',
+        priority: 'medium',
+        flagged: false,
+        dueDate: null,
+        createdAt: serverTimestamp()
+      });
+    } else if (targetType === 'action') {
+      const col = collection(db, 'actions');
+      await addDoc(col, {
+        name: nameToUse,
+        taskId: parentId,
+        status: 'todo',
+        flagged: false,
         createdAt: serverTimestamp()
       });
     }

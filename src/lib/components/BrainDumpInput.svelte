@@ -23,6 +23,15 @@
     }
   }
 
+  let textareaEl = $state();
+
+  $effect(() => {
+    if (text !== undefined && textareaEl) {
+      textareaEl.style.height = 'auto';
+      textareaEl.style.height = textareaEl.scrollHeight + 'px';
+    }
+  });
+
   function handleKeydown(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -47,6 +56,7 @@
 
   <div class="input-wrapper">
     <textarea 
+      bind:this={textareaEl}
       bind:value={text} 
       onkeydown={handleKeydown}
       placeholder="Capture a thought..." 

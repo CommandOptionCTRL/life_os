@@ -26,7 +26,7 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-<div class="card" class:overdue onclick={() => onnavigate?.(project)}>
+<div class="card" class:overdue style="--project-color: {project.color ?? 'var(--color-primary)'};" onclick={() => onnavigate?.(project)}>
   <div class="card-header">
     <div class="card-meta">
       {#if lifeArea}
@@ -72,6 +72,7 @@
   .card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
+    border-left: 3px solid var(--project-color);
     border-radius: var(--radius);
     padding: 16px;
     display: flex;

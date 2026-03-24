@@ -8,6 +8,7 @@
   import TaskModal from '$lib/components/TaskModal.svelte';
   import ConfirmSheet from '$lib/components/ConfirmSheet.svelte';
   import Breadcrumb from '$lib/components/Breadcrumb.svelte';
+  import SkeletonCard from '$lib/components/SkeletonCard.svelte';
   import FAB from '$lib/components/FAB.svelte';
   import { goto } from '$app/navigation';
 
@@ -19,11 +20,20 @@
   let itemToDelete = $state(null);
   let editingTask = $state(null);
 
+  let loadingTasks = $state(true);
+  let loadingAreas = $state(true);
+  let loadingProjects = $state(true);
+  let loading = $derived(loadingTasks || loadingAreas || loadingProjects);
+
   onMount(() => {
-    lifeAreas.init();
-    projects.init();
+    lifeAreas.init(() => loadingAreas = false);
+    projects.init(() => loadingProjects = false);
+    
     $effect(() => {
-      if (projectId) tasks.init(projectId);
+      if (projectId) {
+        loadingTasks = true;
+        tasks.init(projectId, () => loadingTasks = false);
+      }
     });
   });
 
@@ -97,7 +107,13 @@
     <p class="page-subtitle">What needs to be done</p>
   </header>
 
-  {#if filteredTasks.length === 0}
+  {#if loading}
+    <div class="tasks-list">
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard />
+    </div>
+  {:else if filteredTasks.length === 0}
     <div class="empty-state">
       <div class="empty-icon">✅</div>
       <h2>No tasks in this project</h2>

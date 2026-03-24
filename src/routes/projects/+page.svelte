@@ -5,19 +5,26 @@
   import ProjectCard from '$lib/components/ProjectCard.svelte';
   import ProjectModal from '$lib/components/ProjectModal.svelte';
   import ConfirmSheet from '$lib/components/ConfirmSheet.svelte';
-  import SortFilterBar from '$lib/components/SortFilterBar.svelte';
+  import FilterSheet from '$lib/components/FilterSheet.svelte';
+  import SkeletonCard from '$lib/components/SkeletonCard.svelte';
   import FAB from '$lib/components/FAB.svelte';
 
   let modalOpen = $state(false);
+  let filterOpen = $state(false);
   let confirmOpen = $state(false);
   let itemToDelete = $state(null);
   let editingProject = $state(null);
   let filterPriority = $state('');
   let filterStatus = $state('');
+  let loading = $state(true);
 
   onMount(() => {
-    projects.init();
-    lifeAreas.init();
+    let pLoaded = false;
+    let aLoaded = false;
+    function check() { if (pLoaded && aLoaded) loading = false; }
+    
+    projects.init(() => { pLoaded = true; check(); });
+    lifeAreas.init(() => { aLoaded = true; check(); });
   });
 
   onDestroy(() => {
@@ -93,9 +100,13 @@
     <p class="page-subtitle">What you're working towards</p>
   </header>
 
-  <SortFilterBar onfilter={handleFilter} />
-
-  {#if filteredProjects.length === 0}
+  {#if loading}
+    <div class="projects-list">
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard />
+    </div>
+  {:else if filteredProjects.length === 0}
     <div class="empty-state">
       <div class="empty-icon">🚀</div>
       <h2>{$sortedProjects.length === 0 ? 'No projects yet' : 'No matches'}</h2>
@@ -119,7 +130,19 @@
   {/if}
 </main>
 
+<button class="filter-fab" onclick={() => filterOpen = true} aria-label="Filter options">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+  </svg>
+</button>
+
 <FAB onclick={openCreate} />
+
+<FilterSheet
+  open={filterOpen}
+  onfilter={handleFilter}
+  onclose={() => filterOpen = false}
+/>
 
 <ProjectModal
   open={modalOpen}
@@ -184,4 +207,25 @@
 
   .empty-state h2 { font-size: 18px; font-weight: 600; color: var(--color-text); }
   .empty-state p { font-size: 14px; line-height: 1.6; }
+
+  .filter-fab {
+    position: fixed;
+    bottom: calc(var(--nav-height) + var(--safe-bottom) + 90px);
+    right: 20px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 90;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    transition: transform 0.2s, background 0.2s;
+  }
+  .filter-fab:active { transform: scale(0.92); }
+  .filter-fab svg { width: 18px; height: 18px; }
 </style>

@@ -20,9 +20,11 @@ function createTasksStore() {
 
   let unsubscribe = null;
 
-  function init(projectId) {
-    if (!projectId) return;
-    const q = query(col, where('projectId', '==', projectId));
+  function init(projectId, onLoaded = null) {
+    const q = projectId 
+      ? query(col, where('projectId', '==', projectId))
+      : query(col);
+    let initial = true;
     unsubscribe = onSnapshot(q, (snapshot) => {
       const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
       items.sort((a, b) => {
@@ -30,6 +32,10 @@ function createTasksStore() {
         return b.createdAt.toMillis() - a.createdAt.toMillis();
       });
       set(items);
+      if (initial) {
+        initial = false;
+        onLoaded?.();
+      }
     });
   }
 
@@ -58,7 +64,17 @@ function createTasksStore() {
     await deleteDoc(doc(db, 'tasks', id));
   }
 
-  return { subscribe, init, destroy, addTask, updateTask, deleteTask };
+  async function toggleFlag(id) {
+    let currentFlag = false;
+    const unsub = subscribe(items => {
+      const item = items.find(i => i.id === id);
+      if (item) currentFlag = !!item.flagged;
+    });
+    unsub();
+    await updateTask(id, { flagged: !currentFlag });
+  }
+
+  return { subscribe, init, destroy, addTask, updateTask, deleteTask, toggleFlag };
 }
 
 export const tasks = createTasksStore();
