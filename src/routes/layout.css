@@ -26,7 +26,21 @@
   --color-area-6: #FD9644;
   --color-area-7: #A55EEA;
   --color-area-8: #2BCBBA;
+}
 
+[data-theme="light"] {
+  /* Surfaces */
+  --color-bg: #F8F9FA;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F1F3F5;
+  --color-border: rgba(0,0,0,0.08);
+
+  /* Text */
+  --color-text: #212529;
+  --color-text-muted: #868E96;
+}
+
+:root {
   /* Layout */
   --nav-height: 64px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
