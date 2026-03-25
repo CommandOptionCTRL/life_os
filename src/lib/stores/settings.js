@@ -30,11 +30,13 @@ function createSettingsStore() {
   let unsubscribe = null;
 
   function init() {
+    if (unsubscribe) return;
     unsubscribe = onSnapshot(docRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = /** @type {Settings} */ (snapshot.data());
-        set(data);
-        applyThemeStyles(data);
+        const merged = { ...DEFAULT_SETTINGS, ...data };
+        set(merged);
+        applyThemeStyles(merged);
       } else {
         // Create initial if missing
         setDoc(docRef, DEFAULT_SETTINGS);

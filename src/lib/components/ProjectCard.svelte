@@ -1,5 +1,6 @@
 <script>
-  import { isOverdue } from '$lib/stores/projects.js';
+  import { projects, isOverdue } from '$lib/stores/projects.js';
+  import MultiDayCheckoff from '$lib/components/MultiDayCheckoff.svelte';
 
   let { project, lifeArea = null, onedit, ondelete, onnavigate } = $props();
 
@@ -52,6 +53,14 @@
 
   <h3 class="card-name">{project.name}</h3>
 
+  {#if project.recurrence?.frequency === 'weekly' && project.recurrence?.daysOfWeek?.length > 0}
+    <MultiDayCheckoff 
+      selectedDays={project.recurrence.daysOfWeek} 
+      completions={project.completions}
+      ontoggle={(date) => projects.toggleProjectCompletion(project.id, date)}
+    />
+  {/if}
+
   <div class="card-footer">
     <span class="priority-chip" style="--priority-color: {priority.color}">
       {priority.icon} {priority.label}
@@ -60,6 +69,14 @@
       <span class="due-date" class:overdue-date={overdue}>
         {#if overdue}⚠️{:else}📅{/if}
         {formatDate(project.dueDate)}
+        {#if project.dueTime}
+          <span class="due-time">at {project.dueTime}</span>
+        {/if}
+      </span>
+    {/if}
+    {#if project.recurrence?.frequency !== 'none'}
+      <span class="recurrence-label">
+        🔄 {project.recurrence.frequency}
       </span>
     {/if}
     {#if overdue}

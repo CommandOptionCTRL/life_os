@@ -15,6 +15,13 @@ import { db } from '../../firebase/database.js';
 /**
  * @typedef {'high' | 'medium' | 'low'} Priority
  * @typedef {'active' | 'pending' | 'done'} Status
+ * @typedef {Object} Recurrence
+ * @property {'none' | 'daily' | 'weekly' | 'monthly'} frequency
+ * @property {number} interval
+ * @property {number[]} [daysOfWeek]
+ * @property {string} [time]
+ * @property {'completion' | 'calendar'} type
+ * 
  * @typedef {{
  *   id: string;
  *   name: string;
@@ -23,6 +30,9 @@ import { db } from '../../firebase/database.js';
  *   priority: Priority;
  *   flagged: boolean;
  *   dueDate: string | null;
+ *   dueTime: string | null;
+ *   recurrence: Recurrence;
+ *   completions: Record<string, boolean>;
  *   createdAt: import('firebase/firestore').Timestamp;
  * }} Project
  */
@@ -56,7 +66,7 @@ function createProjectsStore() {
   }
 
   /**
-   * @param {{ name: string; lifeAreaId: string; priority?: Priority; status?: Status; dueDate?: string | null }} data
+   * @param {{ name: string; lifeAreaId: string; priority?: Priority; status?: Status; flagged?: boolean; dueDate?: string | null; dueTime?: string | null; recurrence?: any; completions?: any }} data
    */
   async function addProject(data) {
     await addDoc(col, {
@@ -66,16 +76,64 @@ function createProjectsStore() {
       status: data.status ?? 'active',
       flagged: data.flagged ?? false,
       dueDate: data.dueDate ?? null,
+      dueTime: data.dueTime ?? null,
+      recurrence: data.recurrence ?? { frequency: 'none', interval: 1, daysOfWeek: [], type: 'calendar' },
+      completions: data.completions ?? {},
       createdAt: serverTimestamp()
     });
   }
 
   /**
    * @param {string} id
-   * @param {Partial<Omit<Project, 'id' | 'createdAt'>>} data
+   * @param {Partial<Project>} data
    */
   async function updateProject(id, data) {
     await updateDoc(doc(db, 'projects', id), data);
+
+    if (data.status === 'done') {
+      const unsub = subscribe(items => {
+        const item = items.find(i => i.id === id);
+        if (item && item.recurrence?.frequency !== 'none') {
+          handleRecurrenceCompletion(item);
+        }
+      });
+      unsub();
+    }
+  }
+
+  /**
+   * @param {Project} project
+   */
+  async function handleRecurrenceCompletion(project) {
+    const { getNextDate } = await import('$lib/utils/recurrence.js');
+    const nextDueDate = getNextDate(project.dueDate || new Date().toISOString().split('T')[0], project.recurrence);
+    
+    await addProject({
+      ...project,
+      status: 'active',
+      dueDate: nextDueDate,
+      completions: {}
+    });
+  }
+
+  /**
+   * @param {string} id
+   * @param {string} date
+   */
+  async function toggleProjectCompletion(id, date) {
+    const docRef = doc(db, 'projects', id);
+    let currentCompletions = /** @type {Record<string, boolean>} */ ({});
+    const unsub = subscribe(items => {
+      const item = items.find(i => i.id === id);
+      if (item) currentCompletions = item.completions || {};
+    });
+    unsub();
+
+    const next = { ...currentCompletions };
+    if (next[date]) delete next[date];
+    else next[date] = true;
+
+    await updateDoc(docRef, { completions: next });
   }
 
   /**
@@ -98,7 +156,7 @@ function createProjectsStore() {
     await updateProject(id, { flagged: !currentFlag });
   }
 
-  return { subscribe, init, destroy, addProject, updateProject, deleteProject, toggleFlag };
+  return { subscribe, init, destroy, addProject, updateProject, toggleProjectCompletion, deleteProject, toggleFlag };
 }
 
 export const projects = createProjectsStore();
@@ -115,7 +173,12 @@ export const sortedProjects = derived(projects, ($projects) => {
     if (pDiff !== 0) return pDiff;
 
     // Earlier due dates first; nulls last
-    if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+    if (a.dueDate && b.dueDate) {
+      if (a.dueDate === b.dueDate && a.dueTime && b.dueTime) {
+        return a.dueTime.localeCompare(b.dueTime);
+      }
+      return a.dueDate.localeCompare(b.dueDate);
+    }
     if (a.dueDate) return -1;
     if (b.dueDate) return 1;
     return 0;
@@ -129,5 +192,10 @@ export const sortedProjects = derived(projects, ($projects) => {
 export function isOverdue(project) {
   if (!project.dueDate || project.status === 'done') return false;
   const today = new Date().toISOString().split('T')[0];
-  return project.dueDate < today;
+  if (project.dueDate < today) return true;
+  if (project.dueDate === today && project.dueTime) {
+    const now = new Date().toTimeString().slice(0, 5);
+    return project.dueTime < now;
+  }
+  return false;
 }

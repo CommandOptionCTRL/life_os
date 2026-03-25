@@ -1,10 +1,12 @@
 <script>
   import ColourPicker from '$lib/components/ColourPicker.svelte';
+  import DayPicker from '$lib/components/DayPicker.svelte';
 
   let { open = false, project = null, lifeAreas = [], onsave, onclose } = $props();
 
   const priorities = ['high', 'medium', 'low'];
   const statuses = ['active', 'pending', 'done'];
+  const frequencies = ['none', 'daily', 'weekly', 'monthly'];
 
   let name = $state('');
   let lifeAreaId = $state('');
@@ -12,6 +14,10 @@
   let priority = $state('medium');
   let status = $state('active');
   let dueDate = $state('');
+  let dueTime = $state('');
+  let frequency = $state('none');
+  let interval = $state(1);
+  let daysOfWeek = $state([]);
 
   $effect(() => {
     if (open) {
@@ -21,6 +27,10 @@
       priority = project?.priority ?? 'medium';
       status = project?.status ?? 'active';
       dueDate = project?.dueDate ?? '';
+      dueTime = project?.dueTime ?? '';
+      frequency = project?.recurrence?.frequency ?? 'none';
+      interval = project?.recurrence?.interval ?? 1;
+      daysOfWeek = project?.recurrence?.daysOfWeek ?? [];
     }
   });
 
@@ -32,7 +42,14 @@
       color,
       priority,
       status,
-      dueDate: dueDate || null
+      dueDate: dueDate || null,
+      dueTime: dueTime || null,
+      recurrence: {
+        frequency,
+        interval,
+        daysOfWeek,
+        type: 'calendar'
+      }
     });
   }
 
@@ -94,10 +111,39 @@
         </div>
       </div>
 
-      <div class="field">
-        <label for="proj-due">Due Date <span class="optional">(optional)</span></label>
-        <input id="proj-due" type="date" bind:value={dueDate} />
+      <div class="field-row">
+        <div class="field">
+          <label for="proj-due">Due Date</label>
+          <input id="proj-due" type="date" bind:value={dueDate} />
+        </div>
+        <div class="field">
+          <label for="proj-time">Time</label>
+          <input id="proj-time" type="time" bind:value={dueTime} />
+        </div>
       </div>
+
+      <div class="field">
+        <label for="proj-freq">Repeat</label>
+        <select id="proj-freq" bind:value={frequency}>
+          {#each frequencies as f}
+            <option value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
+          {#/each}
+        </select>
+      </div>
+
+      {#if frequency === 'weekly'}
+        <div class="field">
+          <span class="field-label">On Days</span>
+          <DayPicker selected={daysOfWeek} onchange={(d) => daysOfWeek = d} />
+        </div>
+      {/if}
+
+      {#if frequency !== 'none'}
+        <div class="field">
+          <label for="proj-interval">Every {interval} {frequency === 'daily' ? 'day' : frequency === 'weekly' ? 'week' : 'month'}{interval > 1 ? 's' : ''}</label>
+          <input id="proj-interval" type="range" min="1" max="12" bind:value={interval} />
+        </div>
+      {/if}
 
       <div class="sheet-actions">
         <button class="btn-secondary" onclick={onclose}>Cancel</button>
@@ -153,6 +199,12 @@
   }
 
   .field { margin-bottom: 18px; }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
 
   .field label, .field-label {
     display: block;
@@ -235,4 +287,10 @@
     border: 1px solid var(--color-border);
   }
   .btn-secondary:active { transform: scale(0.97); }
+
+  input[type="range"] {
+    accent-color: var(--color-primary);
+    padding: 0;
+    height: 30px;
+  }
 </style>

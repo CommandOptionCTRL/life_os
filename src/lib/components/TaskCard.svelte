@@ -1,5 +1,6 @@
 <script>
-  import { isTaskOverdue } from '$lib/stores/tasks.js';
+  import { tasks, isTaskOverdue } from '$lib/stores/tasks.js';
+  import MultiDayCheckoff from '$lib/components/MultiDayCheckoff.svelte';
 
   let { task, onedit, ondelete, ontoggleflag, onnavigate } = $props();
 
@@ -125,6 +126,40 @@
       <p class="card-desc">{task.description}</p>
     {/if}
 
+    {#if task.recurrence?.frequency === 'weekly' && task.recurrence?.daysOfWeek?.length > 0}
+      <MultiDayCheckoff 
+        selectedDays={task.recurrence.daysOfWeek} 
+        completions={task.completions}
+        ontoggle={(date) => tasks.toggleTaskCompletion(task.id, date)}
+      />
+    {/if}
+
+    {#if task.preparationItems && task.preparationItems.length > 0}
+      {@const completedCount = task.preparationItems.filter(i => i.completed).length}
+      {@const totalCount = task.preparationItems.length}
+      {@const isDone = completedCount === totalCount}
+      
+      <div class="prep-section" class:all-done={isDone}>
+        <div class="prep-header">
+          <span class="prep-title">Preparation</span>
+          <span class="prep-count">{completedCount}/{totalCount}</span>
+        </div>
+        <div class="prep-progress">
+          <div class="prep-bar" style="width: {(completedCount/totalCount)*100}%"></div>
+        </div>
+        {#if !isDone}
+          <div class="prep-list">
+            {#each task.preparationItems as item (item.id)}
+              <button class="prep-check" class:checked={item.completed} onclick={(e) => { e.stopPropagation(); tasks.togglePrepItem(task.id, item.id); }}>
+                <div class="checkbox"></div>
+                <span>{item.text}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {/if}
+
     <div class="card-footer">
       <span class="priority-chip" style="--priority-color: {priority.color}">
         {priority.icon} {priority.label}
@@ -133,6 +168,15 @@
         <span class="due-date" class:overdue-date={overdue}>
           {#if overdue}⚠️{:else}📅{/if}
           {formatDate(task.dueDate)}
+          {#if task.dueTime}
+            <span class="due-time">at {task.dueTime}</span>
+          {/if}
+        </span>
+      {/if}
+      {#if task.recurrence?.frequency !== 'none'}
+        <span class="recurrence-label">
+          🔄 {task.recurrence.frequency}
+          {#if task.recurrence.interval > 1}(every {task.recurrence.interval}){/if}
         </span>
       {/if}
       {#if overdue}
@@ -211,8 +255,36 @@
   .icon-btn.flagged { color: #F7B731; }
   .icon-btn.delete-icon:hover { color: #FC5C65; }
 
-  .card-name { font-size: 16px; font-weight: 600; color: var(--color-text); line-height: 1.3; margin: 0; }
   .card-desc { font-size: 13px; color: var(--color-text-muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0; }
+
+  .prep-section {
+    background: var(--color-surface-2); border-radius: 12px; padding: 12px;
+    display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--color-border);
+  }
+  .prep-section.all-done { opacity: 0.6; border-style: dashed; }
+  .prep-header { display: flex; justify-content: space-between; align-items: center; }
+  .prep-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.05em; }
+  .prep-count { font-size: 11px; font-weight: 700; color: var(--color-primary); }
+  
+  .prep-progress { height: 4px; background: var(--color-border); border-radius: 2px; overflow: hidden; }
+  .prep-bar { height: 100%; background: var(--color-primary); transition: width 0.3s ease; }
+  
+  .prep-list { display: flex; flex-direction: column; gap: 4px; }
+  .prep-check {
+    display: flex; align-items: center; gap: 8px; background: transparent; border: none;
+    padding: 4px 0; cursor: pointer; text-align: left; transition: color 0.15s;
+  }
+  .prep-check span { font-size: 13px; color: var(--color-text); }
+  .prep-check.checked span { color: var(--color-text-muted); text-decoration: line-through; }
+  .prep-check .checkbox {
+    width: 16px; height: 16px; border: 2px solid var(--color-border); border-radius: 4px;
+    transition: all 0.15s; flex-shrink: 0; position: relative;
+  }
+  .prep-check.checked .checkbox { background: var(--color-primary); border-color: var(--color-primary); }
+  .prep-check.checked .checkbox::after {
+    content: ''; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px;
+    border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
 
   .card-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .priority-chip {
@@ -222,6 +294,8 @@
   }
   .due-date { font-size: 12px; color: var(--color-text-muted); display: flex; align-items: center; gap: 4px; }
   .due-date.overdue-date { color: #FC5C65; }
+  .due-time { opacity: 0.8; margin-left: 2px; }
+  .recurrence-label { font-size: 11px; color: var(--color-primary); font-weight: 600; text-transform: capitalize; background: var(--color-primary-soft); padding: 2px 6px; border-radius: 4px; }
   .overdue-badge {
     font-size: 11px; font-weight: 700; color: #FC5C65; background: color-mix(in srgb, #FC5C65 15%, transparent);
     padding: 2px 8px; border-radius: 99px; border: 1px solid color-mix(in srgb, #FC5C65 30%, transparent); text-transform: uppercase; letter-spacing: 0.05em;
