@@ -66,12 +66,12 @@
   function getActionPath(action) {
     const task = getTask(action.taskId);
     if (!task) return action.name;
-    const project = getProject(task.projectId);
-    if (!project) return `${task.name} › ${action.name}`;
-    const area = getArea(project.lifeAreaId);
+    const proj = getProject(task.projectId);
+    if (!proj) return `${task.name} › ${action.name}`;
+    const area = getArea(proj.lifeAreaId);
     return area 
-      ? `${area.name} › ${project.name} › ${task.name} › ${action.name}`
-      : `${project.name} › ${task.name} › ${action.name}`;
+      ? `${area.name} › ${proj.name} › ${task.name} › ${action.name}`
+      : `${proj.name} › ${task.name} › ${action.name}`;
   }
 
   function isOverdue(dueDate, status) {
