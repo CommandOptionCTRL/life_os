@@ -3,7 +3,12 @@
   publish = "build"
 
 [functions]
-  node_wrapper = "esbuild"
+
+    [functions.node_wrapper]
+    external_node_modules = [
+      "module-one",
+      "module-two"
+    ]
 
 [[headers]]
   for = "/*"
