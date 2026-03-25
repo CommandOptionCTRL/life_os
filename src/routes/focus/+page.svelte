@@ -4,6 +4,7 @@
   import { projects } from '$lib/stores/projects.js';
   import { tasks } from '$lib/stores/tasks.js';
   import { actions } from '$lib/stores/actions.js';
+  import { occurrences } from '$lib/stores/occurrenceStore.js';
   import { goto } from '$app/navigation';
   import TogglePill from '$lib/components/TogglePill.svelte';
   import FocusItemCard from '$lib/components/FocusItemCard.svelte';
@@ -18,12 +19,14 @@
     let pLoaded = false;
     let tLoaded = false;
     let aLoaded = false;
-    function check() { if (lLoaded && pLoaded && tLoaded && aLoaded) loading = false; }
+    let oLoaded = false;
+    function check() { if (lLoaded && pLoaded && tLoaded && aLoaded && oLoaded) loading = false; }
     
     lifeAreas.init(() => { lLoaded = true; check(); });
     projects.init(() => { pLoaded = true; check(); });
     tasks.init(null, () => { tLoaded = true; check(); });
     actions.init(null, () => { aLoaded = true; check(); });
+    occurrences.init(() => { oLoaded = true; check(); });
   });
 
   onDestroy(() => {
@@ -31,6 +34,7 @@
     projects.destroy();
     tasks.destroy();
     actions.destroy();
+    occurrences.destroy();
   });
 
   // Derived filtered arrays for Priority
@@ -38,9 +42,16 @@
   let flaggedTasks = $derived($tasks.filter(t => t.flagged));
   let flaggedActions = $derived($actions.filter(a => a.flagged));
 
+  function getNextOccurrence(taskId) {
+    return $occurrences
+      .filter(o => o.taskId === taskId && !o.completed)
+      .sort((a, b) => a.date.localeCompare(b.date))[0];
+  }
+
   // Derived filtered arrays for Pending
-  let pendingProjects = $derived($projects.filter(p => p.status === 'active' || p.status === 'pending'));
-  let pendingTasks = $derived($tasks.filter(t => t.status === 'active' || t.status === 'pending'));
+  let pendingProjects = $derived($projects.filter(p => !p.recurring && (p.status === 'active' || p.status === 'pending')));
+  let pendingTasks = $derived($tasks.filter(t => !t.recurring && (t.status === 'active' || t.status === 'pending')));
+  let pendingOccurrences = $derived($occurrences.filter(o => !o.completed));
 
   function getArea(id) { return $lifeAreas.find(a => a.id === id); }
   function getProject(id) { return $projects.find(p => p.id === id); }
@@ -95,6 +106,23 @@
         groups[aId].items.push({ type: 'task', data: t });
       }
     }
+    for (const o of pendingOccurrences) {
+      const task = getTask(o.taskId);
+      const proj = task ? getProject(task.projectId) : (o.projectId ? getProject(o.projectId) : null);
+      if (proj) {
+        const aId = proj.lifeAreaId;
+        if (!groups[aId]) groups[aId] = { area: getArea(aId), items: [] };
+        groups[aId].items.push({ type: 'occurrence', data: o, parentTask: task, parentProject: proj });
+      } else if (o.projectId) {
+         // Some occurrences might be project-based
+         const p = getProject(o.projectId);
+         if (p) {
+            const aId = p.lifeAreaId;
+            if (!groups[aId]) groups[aId] = { area: getArea(aId), items: [] };
+            groups[aId].items.push({ type: 'occurrence', data: o, parentProject: p });
+         }
+      }
+    }
     return Object.values(groups).sort((a, b) => {
       if (!a.area || !b.area) return 0;
       return a.area.name.localeCompare(b.area.name);
@@ -146,12 +174,13 @@
           <div class="items-list">
             {#each flaggedTasks as t (t.id)}
               {@const proj = getProject(t.projectId)}
+              {@const nextOcc = t.recurring ? getNextOccurrence(t.id) : null}
               <FocusItemCard 
                 title={t.name}
                 pathContext={getTaskPath(t)}
                 areaColor={proj ? getAreaColor(proj.lifeAreaId) : ''}
                 priority={t.priority}
-                dueDate={t.dueDate}
+                dueDate={nextOcc ? nextOcc.date : t.dueDate}
                 onnavigate={() => proj ? goto(`/life-areas/${proj.lifeAreaId}/${t.projectId}/${t.id}`) : null}
               />
             {/each}
@@ -209,6 +238,21 @@
                   dueDate={item.data.dueDate}
                   isOverdue={isOverdue(item.data.dueDate, item.data.status)}
                   onnavigate={() => proj ? goto(`/life-areas/${proj.lifeAreaId}/${item.data.projectId}/${item.data.id}`) : null}
+                />
+              {:else if item.type === 'occurrence'}
+                <FocusItemCard 
+                  title={`${item.parentTask?.name || item.parentProject?.name} ${item.data.time ? `@ ${item.data.time}` : ''}`}
+                  pathContext={item.parentTask ? getTaskPath(item.parentTask) : getProjectPath(item.parentProject)}
+                  areaColor={getAreaColor(item.parentProject?.lifeAreaId)}
+                  dueDate={item.data.date}
+                  isOverdue={isOverdue(item.data.date, 'pending')}
+                  onnavigate={() => {
+                    const areaId = item.parentProject?.lifeAreaId;
+                    const projId = item.parentProject?.id;
+                    const taskId = item.parentTask?.id;
+                    if (areaId && projId && taskId) goto(`/life-areas/${areaId}/${projId}/${taskId}`);
+                    else if (areaId && projId) goto(`/life-areas/${areaId}/${projId}`);
+                  }}
                 />
               {/if}
             {/each}

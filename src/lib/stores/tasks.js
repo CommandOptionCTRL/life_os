@@ -13,12 +13,13 @@ import {
 import { db } from '../../firebase/database.js';
 
 /**
- * @typedef {Object} Recurrence
- * @property {'none' | 'daily' | 'weekly' | 'monthly'} frequency
- * @property {number} interval
- * @property {number[]} [daysOfWeek]
- * @property {string} [time]
- * @property {'completion' | 'calendar'} type
+ * @typedef {Object} Schedule
+ * @property {'none' | 'daily' | 'weekly' | 'monthly' | 'custom'} type
+ * @property {number[]} days
+ * @property {string[]} times
+ * @property {string | null} startDate
+ * @property {string | null} endDate
+ * @property {number} frequency
  * 
  * @typedef {{
  *   id: string;
@@ -30,8 +31,8 @@ import { db } from '../../firebase/database.js';
  *   flagged: boolean;
  *   dueDate: string | null;
  *   dueTime: string | null;
- *   recurrence: Recurrence;
- *   completions: Record<string, boolean>;
+ *   recurring: boolean;
+ *   schedule: Schedule;
  *   preparationItems: { id: string; text: string; completed: boolean }[];
  *   createdAt: import('firebase/firestore').Timestamp;
  * }} Task
@@ -74,7 +75,7 @@ function createTasksStore() {
   }
 
   async function addTask(data) {
-    await addDoc(col, {
+    const docRef = await addDoc(col, {
       name: data.name,
       description: data.description ?? '',
       projectId: data.projectId,
@@ -83,11 +84,19 @@ function createTasksStore() {
       flagged: data.flagged ?? false,
       dueDate: data.dueDate ?? null,
       dueTime: data.dueTime ?? null,
-      recurrence: data.recurrence ?? { frequency: 'none', interval: 1, daysOfWeek: [], type: 'calendar' },
-      completions: data.completions ?? {},
+      recurring: data.recurring ?? false,
+      schedule: data.schedule ?? { type: 'none', days: [], times: [], startDate: null, endDate: null, frequency: 1 },
       preparationItems: data.preparationItems ?? [],
       createdAt: serverTimestamp()
     });
+
+    if (data.recurring && data.schedule) {
+      const { recurring } = await import('./recurringStore.js');
+      await recurring.generateOccurrencesForTask({
+        id: docRef.id,
+        ...data
+      });
+    }
   }
 
   /**
@@ -97,31 +106,16 @@ function createTasksStore() {
   async function updateTask(id, data) {
     await updateDoc(doc(db, 'tasks', id), data);
 
-    // If marked as done and has recurrence, check if we need to create the next instance
-    if (data.status === 'done') {
-      const unsub = subscribe(items => {
-        const item = items.find(i => i.id === id);
-        if (item && item.recurrence?.frequency !== 'none') {
-          handleRecurrenceCompletion(item);
-        }
-      });
-      unsub();
-    }
-  }
-
-  /**
-   * @param {Task} task
-   */
-  async function handleRecurrenceCompletion(task) {
-    const { getNextDate } = await import('$lib/utils/recurrence.js');
-    const nextDueDate = getNextDate(task.dueDate || new Date().toISOString().split('T')[0], task.recurrence);
-    
-    await addTask({
-      ...task,
-      status: 'active',
-      dueDate: nextDueDate,
-      completions: {}
+    const { recurring } = await import('./recurringStore.js');
+    let fullTask = /** @type {Task | undefined} */ (undefined);
+    const unsub = subscribe(items => {
+      fullTask = items.find(i => i.id === id);
     });
+    unsub();
+    
+    if (fullTask && fullTask.recurring) {
+      await recurring.generateOccurrencesForTask(fullTask);
+    }
   }
 
   /**
@@ -133,6 +127,7 @@ function createTasksStore() {
     let currentCompletions = /** @type {Record<string, boolean>} */ ({});
     const unsub = subscribe(items => {
       const item = items.find(i => i.id === id);
+      // @ts-ignore - completions might be missing in new schema
       if (item) currentCompletions = item.completions || {};
     });
     unsub();
@@ -149,19 +144,8 @@ function createTasksStore() {
    * @param {string} itemId
    */
   async function togglePrepItem(taskId, itemId) {
-    const docRef = doc(db, 'tasks', taskId);
-    let items = /** @type {{id: string, text: string, completed: boolean}[]} */ ([]);
-    const unsub = subscribe(list => {
-      const t = list.find(x => x.id === taskId);
-      if (t) items = [...(t.preparationItems || [])];
-    });
-    unsub();
-
-    const updated = items.map(item => 
-      item.id === itemId ? { ...item, completed: !item.completed } : item
-    );
-
-    await updateDoc(docRef, { preparationItems: updated });
+    const { preparation } = await import('./preparationStore.js');
+    await preparation.togglePrepItem(taskId, itemId);
   }
 
   /**
@@ -169,6 +153,8 @@ function createTasksStore() {
    */
   async function deleteTask(id) {
     await deleteDoc(doc(db, 'tasks', id));
+    const { occurrences } = await import('./occurrenceStore.js');
+    await occurrences.deleteByTaskId(id);
   }
 
   /**
@@ -184,7 +170,7 @@ function createTasksStore() {
     await updateTask(id, { flagged: !currentFlag });
   }
 
-  return { subscribe, init, destroy, addTask, updateTask, toggleTaskCompletion, deleteTask, toggleFlag };
+  return { subscribe, init, destroy, addTask, updateTask, toggleTaskCompletion, togglePrepItem, deleteTask, toggleFlag };
 }
 
 export const tasks = createTasksStore();

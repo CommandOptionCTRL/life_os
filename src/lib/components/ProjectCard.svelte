@@ -53,9 +53,9 @@
 
   <h3 class="card-name">{project.name}</h3>
 
-  {#if project.recurrence?.frequency === 'weekly' && project.recurrence?.daysOfWeek?.length > 0}
+  {#if project.schedule?.type === 'weekly' && project.schedule?.days?.length > 0}
     <MultiDayCheckoff 
-      selectedDays={project.recurrence.daysOfWeek} 
+      selectedDays={project.schedule.days} 
       completions={project.completions}
       ontoggle={(date) => projects.toggleProjectCompletion(project.id, date)}
     />
@@ -74,9 +74,9 @@
         {/if}
       </span>
     {/if}
-    {#if project.recurrence?.frequency !== 'none'}
+    {#if project.recurring && project.schedule}
       <span class="recurrence-label">
-        🔄 {project.recurrence.frequency}
+        🔄 {project.schedule.type}
       </span>
     {/if}
     {#if overdue}

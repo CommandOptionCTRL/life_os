@@ -30,9 +30,9 @@ function createBrainDumpStore() {
       /** @type {BrainDumpItem[]} */
       const items = snapshot.docs.map((d) => ({ id: d.id, .../** @type {any} */ (d.data()) }));
       set(items);
-      if (initial) {
+      if (initial && typeof onLoaded === 'function') {
         initial = false;
-        onLoaded?.();
+        onLoaded();
       }
     });
   }
@@ -85,6 +85,8 @@ function createBrainDumpStore() {
         priority: 'medium',
         flagged: false,
         dueDate: null,
+        recurring: false,
+        schedule: { type: 'none', days: [], times: [''], startDate: null, endDate: null, frequency: 1 },
         createdAt: serverTimestamp()
       });
     } else if (targetType === 'task') {
@@ -97,6 +99,9 @@ function createBrainDumpStore() {
         priority: 'medium',
         flagged: false,
         dueDate: null,
+        recurring: false,
+        schedule: { type: 'none', days: [], times: [''], startDate: null, endDate: null, frequency: 1 },
+        preparationItems: [],
         createdAt: serverTimestamp()
       });
     } else if (targetType === 'action') {

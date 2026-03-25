@@ -126,9 +126,9 @@
       <p class="card-desc">{task.description}</p>
     {/if}
 
-    {#if task.recurrence?.frequency === 'weekly' && task.recurrence?.daysOfWeek?.length > 0}
+    {#if task.schedule?.type === 'weekly' && task.schedule?.days?.length > 0}
       <MultiDayCheckoff 
-        selectedDays={task.recurrence.daysOfWeek} 
+        selectedDays={task.schedule.days} 
         completions={task.completions}
         ontoggle={(date) => tasks.toggleTaskCompletion(task.id, date)}
       />
@@ -138,6 +138,7 @@
       {@const completedCount = task.preparationItems.filter(i => i.completed).length}
       {@const totalCount = task.preparationItems.length}
       {@const isDone = completedCount === totalCount}
+      {@const canComplete = isDone}
       
       <div class="prep-section" class:all-done={isDone}>
         <div class="prep-header">
@@ -149,7 +150,7 @@
         </div>
         {#if !isDone}
           <div class="prep-list">
-            {#each task.preparationItems as item (item.id)}
+            {#each task.preparationItems as item, i (item.id || i)}
               <button class="prep-check" class:checked={item.completed} onclick={(e) => { e.stopPropagation(); tasks.togglePrepItem(task.id, item.id); }}>
                 <div class="checkbox"></div>
                 <span>{item.text}</span>
@@ -157,6 +158,35 @@
             {/each}
           </div>
         {/if}
+      </div>
+    {/if}
+
+    {#if !task.recurring}
+      {@const prepIncomplete = task.preparationItems?.length > 0 && task.preparationItems.some(i => !i.completed)}
+      <div class="task-completion">
+        <button 
+          class="complete-btn" 
+          class:checked={task.status === 'done'} 
+          class:blocked={prepIncomplete}
+          onclick={(e) => { 
+            e.stopPropagation(); 
+            if (!prepIncomplete) {
+              tasks.updateTask(task.id, { status: task.status === 'done' ? 'active' : 'done' });
+            }
+          }}
+        >
+          <div class="checkbox">
+            {#if task.status === 'done'}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            {/if}
+          </div>
+          <span>{task.status === 'done' ? 'Completed' : 'Complete Task'}</span>
+          {#if prepIncomplete}
+            <span class="lock-icon">🔒</span>
+          {/if}
+        </button>
       </div>
     {/if}
 
@@ -173,10 +203,10 @@
           {/if}
         </span>
       {/if}
-      {#if task.recurrence?.frequency !== 'none'}
+      {#if task.recurring && task.schedule}
         <span class="recurrence-label">
-          🔄 {task.recurrence.frequency}
-          {#if task.recurrence.interval > 1}(every {task.recurrence.interval}){/if}
+          🔄 {task.schedule.type}
+          {#if task.schedule.frequency > 1}(every {task.schedule.frequency}){/if}
         </span>
       {/if}
       {#if overdue}
@@ -285,6 +315,21 @@
     content: ''; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px;
     border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg);
   }
+
+  .task-completion { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--color-border); }
+  .complete-btn {
+    width: 100%; display: flex; align-items: center; gap: 10px; background: var(--color-surface-2);
+    border: 1px solid var(--color-border); padding: 12px; border-radius: 12px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .complete-btn span { font-size: 14px; font-weight: 700; color: var(--color-text); }
+  .complete-btn .checkbox { width: 22px; height: 22px; border: 2px solid var(--color-border); border-radius: 6px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+  .complete-btn.checked { background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)); border-color: var(--color-primary); }
+  .complete-btn.checked .checkbox { background: var(--color-primary); border-color: var(--color-primary); color: white; }
+  .complete-btn.checked .checkbox svg { width: 14px; height: 14px; }
+  .complete-btn.blocked { opacity: 0.5; cursor: not-allowed; }
+  .complete-btn.blocked .checkbox { background: var(--color-surface-2); }
+  .lock-icon { font-size: 12px; margin-left: auto; }
 
   .card-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .priority-chip {

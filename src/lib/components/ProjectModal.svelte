@@ -15,9 +15,13 @@
   let status = $state('active');
   let dueDate = $state('');
   let dueTime = $state('');
-  let frequency = $state('none');
-  let interval = $state(1);
-  let daysOfWeek = $state([]);
+  let recurring = $state(false);
+  let scheduleType = $state('none');
+  let scheduleDays = $state([]);
+  let scheduleTimes = $state(['']);
+  let scheduleStartDate = $state('');
+  let scheduleEndDate = $state('');
+  let scheduleFrequency = $state(1);
 
   $effect(() => {
     if (open) {
@@ -28,9 +32,14 @@
       status = project?.status ?? 'active';
       dueDate = project?.dueDate ?? '';
       dueTime = project?.dueTime ?? '';
-      frequency = project?.recurrence?.frequency ?? 'none';
-      interval = project?.recurrence?.interval ?? 1;
-      daysOfWeek = project?.recurrence?.daysOfWeek ?? [];
+      recurring = project?.recurring ?? false;
+      const s = project?.schedule ?? { type: 'none', days: [], times: [''], startDate: '', endDate: '', frequency: 1 };
+      scheduleType = s.type;
+      scheduleDays = s.days ?? [];
+      scheduleTimes = s.times?.length > 0 ? [...s.times] : [''];
+      scheduleStartDate = s.startDate ?? '';
+      scheduleEndDate = s.endDate ?? '';
+      scheduleFrequency = s.frequency ?? 1;
     }
   });
 
@@ -44,11 +53,14 @@
       status,
       dueDate: dueDate || null,
       dueTime: dueTime || null,
-      recurrence: {
-        frequency,
-        interval,
-        daysOfWeek,
-        type: 'calendar'
+      recurring,
+      schedule: {
+        type: scheduleType,
+        days: scheduleDays,
+        times: scheduleTimes.filter(t => t !== ''),
+        startDate: scheduleStartDate || null,
+        endDate: scheduleEndDate || null,
+        frequency: scheduleFrequency
       }
     });
   }
@@ -123,25 +135,61 @@
       </div>
 
       <div class="field">
-        <label for="proj-freq">Repeat</label>
-        <select id="proj-freq" bind:value={frequency}>
-          {#each frequencies as f}
-            <option value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
-          {#/each}
-        </select>
+        <label class="check-label">
+          <input type="checkbox" bind:checked={recurring} />
+          <span>Recurring Project</span>
+        </label>
       </div>
 
-      {#if frequency === 'weekly'}
-        <div class="field">
-          <span class="field-label">On Days</span>
-          <DayPicker selected={daysOfWeek} onchange={(d) => daysOfWeek = d} />
-        </div>
-      {/if}
+      {#if recurring}
+        <div class="recurring-section">
+          <div class="field">
+            <label for="proj-freq">Frequency</label>
+            <select id="proj-freq" bind:value={scheduleType}>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
 
-      {#if frequency !== 'none'}
-        <div class="field">
-          <label for="proj-interval">Every {interval} {frequency === 'daily' ? 'day' : frequency === 'weekly' ? 'week' : 'month'}{interval > 1 ? 's' : ''}</label>
-          <input id="proj-interval" type="range" min="1" max="12" bind:value={interval} />
+          {#if scheduleType === 'weekly' || scheduleType === 'custom'}
+            <div class="field">
+              <span class="field-label">On Days</span>
+              <DayPicker selected={scheduleDays} onchange={(d) => scheduleDays = d} />
+            </div>
+          {/if}
+
+          <div class="field">
+            <div class="field-header">
+                <span class="field-label">Time Slots</span>
+                <button class="add-btn" onclick={() => scheduleTimes = [...scheduleTimes, '']}>+ Add Time</button>
+            </div>
+            {#each scheduleTimes as time, i}
+                <div class="time-item">
+                    <input type="time" bind:value={scheduleTimes[i]} />
+                    {#if scheduleTimes.length > 1}
+                        <button class="remove-btn" onclick={() => scheduleTimes = scheduleTimes.filter((_, idx) => idx !== i)}>×</button>
+                    {/if}
+                </div>
+            {/each}
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="proj-start">Start Date</label>
+              <input id="proj-start" type="date" bind:value={scheduleStartDate} />
+            </div>
+            <div class="field">
+              <label for="proj-end">End Date</label>
+              <input id="proj-end" type="date" bind:value={scheduleEndDate} />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="proj-interval">Every {scheduleFrequency} {scheduleType === 'daily' ? 'day' : scheduleType === 'weekly' ? 'week' : 'month'}{scheduleFrequency > 1 ? 's' : ''}</label>
+            <input id="proj-interval" type="range" min="1" max="12" bind:value={scheduleFrequency} />
+          </div>
         </div>
       {/if}
 
@@ -287,6 +335,31 @@
     border: 1px solid var(--color-border);
   }
   .btn-secondary:active { transform: scale(0.97); }
+
+  .check-label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .check-label input { width: auto; margin: 0; }
+  .check-label span { font-size: 14px; font-weight: 600; color: var(--color-text); }
+
+  .recurring-section {
+    background: var(--color-surface-2); border-radius: 12px; padding: 16px; margin-bottom: 20px;
+    border: 1px solid var(--color-border);
+  }
+
+  .field-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .add-btn {
+    background: transparent; border: none; color: var(--color-primary);
+    font-size: 13px; font-weight: 600; cursor: pointer; padding: 4px 8px;
+    border-radius: 4px; transition: background 0.15s;
+  }
+  .add-btn:hover { background: var(--color-primary-soft); }
+
+  .time-item { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .time-item input { flex: 1; }
+  .remove-btn {
+    background: transparent; border: none; color: var(--color-text-muted);
+    font-size: 20px; cursor: pointer; padding: 4px 8px; line-height: 1;
+  }
+  .remove-btn:hover { color: #FC5C65; }
 
   input[type="range"] {
     accent-color: var(--color-primary);

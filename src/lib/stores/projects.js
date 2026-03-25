@@ -15,12 +15,13 @@ import { db } from '../../firebase/database.js';
 /**
  * @typedef {'high' | 'medium' | 'low'} Priority
  * @typedef {'active' | 'pending' | 'done'} Status
- * @typedef {Object} Recurrence
- * @property {'none' | 'daily' | 'weekly' | 'monthly'} frequency
- * @property {number} interval
- * @property {number[]} [daysOfWeek]
- * @property {string} [time]
- * @property {'completion' | 'calendar'} type
+ * @typedef {Object} Schedule
+ * @property {'none' | 'daily' | 'weekly' | 'monthly' | 'custom'} type
+ * @property {number[]} days
+ * @property {string[]} times
+ * @property {string | null} startDate
+ * @property {string | null} endDate
+ * @property {number} frequency
  * 
  * @typedef {{
  *   id: string;
@@ -31,8 +32,8 @@ import { db } from '../../firebase/database.js';
  *   flagged: boolean;
  *   dueDate: string | null;
  *   dueTime: string | null;
- *   recurrence: Recurrence;
- *   completions: Record<string, boolean>;
+ *   recurring: boolean;
+ *   schedule: Schedule;
  *   createdAt: import('firebase/firestore').Timestamp;
  * }} Project
  */
@@ -66,10 +67,10 @@ function createProjectsStore() {
   }
 
   /**
-   * @param {{ name: string; lifeAreaId: string; priority?: Priority; status?: Status; flagged?: boolean; dueDate?: string | null; dueTime?: string | null; recurrence?: any; completions?: any }} data
+   * @param {{ name: string; lifeAreaId: string; priority?: Priority; status?: Status; flagged?: boolean; dueDate?: string | null; dueTime?: string | null; recurring?: boolean; schedule?: any }} data
    */
   async function addProject(data) {
-    await addDoc(col, {
+    const docRef = await addDoc(col, {
       name: data.name,
       lifeAreaId: data.lifeAreaId,
       priority: data.priority ?? 'medium',
@@ -77,10 +78,18 @@ function createProjectsStore() {
       flagged: data.flagged ?? false,
       dueDate: data.dueDate ?? null,
       dueTime: data.dueTime ?? null,
-      recurrence: data.recurrence ?? { frequency: 'none', interval: 1, daysOfWeek: [], type: 'calendar' },
-      completions: data.completions ?? {},
+      recurring: data.recurring ?? false,
+      schedule: data.schedule ?? { type: 'none', days: [], times: [], startDate: null, endDate: null, frequency: 1 },
       createdAt: serverTimestamp()
     });
+
+    if (data.recurring && data.schedule) {
+      const { recurring } = await import('./recurringStore.js');
+      await recurring.generateOccurrencesForTask({
+        id: docRef.id,
+        ...data
+      });
+    }
   }
 
   /**
@@ -90,30 +99,16 @@ function createProjectsStore() {
   async function updateProject(id, data) {
     await updateDoc(doc(db, 'projects', id), data);
 
-    if (data.status === 'done') {
-      const unsub = subscribe(items => {
-        const item = items.find(i => i.id === id);
-        if (item && item.recurrence?.frequency !== 'none') {
-          handleRecurrenceCompletion(item);
-        }
-      });
-      unsub();
-    }
-  }
-
-  /**
-   * @param {Project} project
-   */
-  async function handleRecurrenceCompletion(project) {
-    const { getNextDate } = await import('$lib/utils/recurrence.js');
-    const nextDueDate = getNextDate(project.dueDate || new Date().toISOString().split('T')[0], project.recurrence);
-    
-    await addProject({
-      ...project,
-      status: 'active',
-      dueDate: nextDueDate,
-      completions: {}
+    const { recurring } = await import('./recurringStore.js');
+    let fullProject = /** @type {Project | undefined} */ (undefined);
+    const unsub = subscribe(items => {
+      fullProject = items.find(i => i.id === id);
     });
+    unsub();
+
+    if (fullProject && fullProject.recurring) {
+      await recurring.generateOccurrencesForTask(fullProject);
+    }
   }
 
   /**
@@ -125,6 +120,7 @@ function createProjectsStore() {
     let currentCompletions = /** @type {Record<string, boolean>} */ ({});
     const unsub = subscribe(items => {
       const item = items.find(i => i.id === id);
+      // @ts-ignore - completions might be missing in new schema
       if (item) currentCompletions = item.completions || {};
     });
     unsub();
@@ -141,6 +137,8 @@ function createProjectsStore() {
    */
   async function deleteProject(id) {
     await deleteDoc(doc(db, 'projects', id));
+    const { occurrences } = await import('./occurrenceStore.js');
+    await occurrences.deleteByTaskId(id);
   }
 
   /**

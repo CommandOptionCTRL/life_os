@@ -27,6 +27,11 @@ service cloud.firestore {
                            && request.resource.data.priority in ['high', 'medium', 'low'];
       allow delete: if true;
     }
+    
+    match /taskOccurrences/{occId} {
+      allow read: if true;
+      allow create, update, delete: if true; 
+    }
 
     match /actions/{actionId} {
       allow read: if true;
